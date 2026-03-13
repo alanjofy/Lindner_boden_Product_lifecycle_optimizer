@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lindner LCA · Product Lifecycle Optimizer</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+    /* ── 3D Product Showcase in Results ── */
+    .product-showcase {
+        display: none;
+        gap: 16px;
+        margin-bottom: 28px;
+        justify-content: center;
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+    .product-showcase.active { display: flex; }
+
+    .showcase-card {
+        flex: 1;
+        min-width: 180px;
+        max-width: 260px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        animation: showcaseFadeIn 0.65s ease-out forwards;
+        opacity: 0;
+    }
+    .showcase-card:nth-child(2) { animation-delay: 0.15s; }
+    .showcase-card:nth-child(3) { animation-delay: 0.0s; }
+    .showcase-card:nth-child(4) { animation-delay: 0.3s; }
+
+    @keyframes showcaseFadeIn {
+        from { opacity: 0; transform: translateY(28px) scale(0.94); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .showcase-canvas-wrap {
+        width: 100%;
+        aspect-ratio: 16/10;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #0d1829;
+        border: 1px solid rgba(255,255,255,0.07);
+        cursor: pointer;
+        transition: border-color 0.3s;
+    }
+    .showcase-canvas-wrap:hover { border-color: rgba(59,127,245,0.4); }
+    .showcase-canvas-wrap canvas { display: block; width: 100% !important; height: 100% !important; }
+
+    .showcase-meta {
+        width: 100%;
+        background: #162236;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 12px;
+        padding: 12px 16px;
+        text-align: center;
+        position: relative;
+    }
+
+    .showcase-name {
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #eef2f8;
+        margin-bottom: 5px;
+        font-family: 'DM Mono', monospace;
+        text-transform: uppercase;
+    }
+
+    .showcase-gwp {
+        font-size: 1.5rem;
+        font-weight: 800;
+        font-family: 'DM Mono', monospace;
+        color: white;
+        line-height: 1;
+    }
+
+    .showcase-unit {
+        font-size: 0.65rem;
+        color: #6b82a0;
+        font-family: 'DM Mono', monospace;
+        display: block;
+        margin-top: 4px;
+    }
+
+    .showcase-winner-badge {
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #00d98b, #00b8d9);
+        color: #080f1c;
+        font-size: 0.62rem;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        padding: 3px 12px;
+        border-radius: 20px;
+        white-space: nowrap;
+        display: none;
+        text-transform: uppercase;
+    }
+    .showcase-winner-badge.visible { display: block; }
+
+    .showcase-vs {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #3d5470;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        padding-top: 20px;
+        flex-shrink: 0;
+        gap: 6px;
+    }
+    .showcase-vs-line {
+        width: 1px;
+        height: 36px;
+        background: linear-gradient(to bottom, transparent, #3d5470, transparent);
+    }
+
+    /* ── PDF Export Button ── */
+    .pdf-export-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        background: linear-gradient(135deg, #3b7ff5, #7c3aed);
+        color: white;
+        border: none;
+        padding: 9px 20px;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        letter-spacing: 0.3px;
+        transition: all 0.2s;
+        margin-left: auto;
+        white-space: nowrap;
+    }
+    .pdf-export-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 20px rgba(59,127,245,0.4);
+    }
+    .pdf-export-btn:active { transform: translateY(0); }
+    .pdf-export-btn.loading {
+        opacity: 0.7;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    /* ── 3D Showcase product link overlay ── */
+    .showcase-product-link {
+        display: none;
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: rgba(8,15,28,0.85);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(59,127,245,0.4);
+        color: #3b7ff5;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-decoration: none;
+        transition: all 0.2s;
+        font-family: 'DM Mono', monospace;
+        z-index: 10;
+    }
+    .showcase-product-link.visible { display: block; }
+    .showcase-product-link:hover {
+        background: rgba(59,127,245,0.2);
+        color: white;
+    }
+
+    /* ── Fullscreen 3D Modal ── */
+    #modal-3d-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: rgba(4, 8, 18, 0.97);
+        backdrop-filter: blur(16px);
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        padding-top: 12px;
+    }
+    #modal-3d-overlay.open { display: flex; }
+
+    @keyframes modalFadeIn {
+        from { opacity: 0; transform: scale(0.97); }
+        to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* ── Mode switcher bar ── */
+    #modal-mode-bar {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 14px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 4px;
+        animation: modalFadeIn 0.35s ease-out;
+    }
+    .modal-mode-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 18px;
+        border-radius: 10px;
+        border: none;
+        background: transparent;
+        color: #6b82a0;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.3px;
+    }
+    .modal-mode-btn:hover { color: #eef2f8; background: rgba(255,255,255,0.06); }
+    .modal-mode-btn.active {
+        background: rgba(59,127,245,0.18);
+        color: #7fb3ff;
+        border: 1px solid rgba(59,127,245,0.35);
+    }
+    .modal-mode-btn .mode-icon { font-size: 0.9rem; }
+
+    /* ── Canvas wrapper ── */
+    #modal-3d-canvas-wrap {
+        width: min(88vw, 960px);
+        height: min(58vh, 520px);
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid rgba(59,127,245,0.2);
+        box-shadow: 0 0 80px rgba(59,127,245,0.12), 0 40px 80px rgba(0,0,0,0.7);
+        cursor: grab;
+        position: relative;
+        animation: modalFadeIn 0.4s ease-out;
+    }
+    #modal-3d-canvas-wrap:active { cursor: grabbing; }
+    #modal-3d-canvas-wrap canvas { width: 100% !important; height: 100% !important; display: block; }
+
+    /* ── Info strip ── */
+    #modal-3d-info {
+        margin-top: 18px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        animation: modalFadeIn 0.5s ease-out;
+    }
+    #modal-3d-name {
+        font-family: 'DM Mono', monospace;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 3px;
+        color: #6b82a0;
+        text-transform: uppercase;
+    }
+    #modal-3d-gwp {
+        font-family: 'DM Mono', monospace;
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: var(--success);
+        line-height: 1;
+    }
+    #modal-3d-unit {
+        font-size: 0.72rem;
+        color: #3d5470;
+        font-family: 'DM Mono', monospace;
+    }
+    #modal-3d-link {
+        display: none;
+        margin-top: 6px;
+        padding: 6px 18px;
+        border-radius: 10px;
+        border: 1px solid rgba(59,127,245,0.35);
+        background: rgba(59,127,245,0.08);
+        color: #3b7ff5;
+        text-decoration: none;
+        font-size: 0.8rem;
+        font-weight: 700;
+        font-family: 'DM Sans', sans-serif;
+        transition: all 0.2s;
+    }
+    #modal-3d-link:hover { background: rgba(59,127,245,0.22); color: white; }
+    #modal-3d-link.visible { display: inline-block; }
+
+    /* ── Close button ── */
+    #modal-close-btn {
+        position: fixed;
+        top: 20px;
+        right: 24px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        color: #94a3b8;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        font-size: 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        font-family: sans-serif;
+        z-index: 10000;
+    }
+    #modal-close-btn:hover { background: rgba(240,84,84,0.2); border-color: rgba(240,84,84,0.4); color: white; }
+
+    /* ── Hint text ── */
+    #modal-hint {
+        margin-top: 10px;
+        font-size: 0.65rem;
+        color: #1e2d42;
+        font-family: 'DM Mono', monospace;
+        letter-spacing: 1.5px;
+        pointer-events: none;
+    }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- Header -->
+    <header>
+        <div class="logo"><span class="dot"></span> LINDNER <span style="color:var(--text-dim)">·</span> LCA PLATFORM</div>
+        <h1>Product Lifecycle Optimizer</h1>
+        <p>Environmental impact comparison for flooring renovation &amp; procurement decisions</p>
+    </header>
+
+    <!-- Mode Switcher -->
+    <div class="mode-switcher">
+        <button class="mode-btn active" onclick="switchMode('renovation')">Renovation Project</button>
+        <button class="mode-btn" onclick="switchMode('buyNew')">Buy New Product</button>
+        <button class="mode-btn" onclick="switchMode('newPurchase')">New Purchase Comparison</button>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         VIEW 1: RENOVATION PROJECT
+    ══════════════════════════════════════════ -->
+    <main class="grid-layout" id="view-renovation">
+
+        <section class="card" id="section-baseline">
+            <div class="card-header">
+                <div class="step-number" id="step1-num">01</div>
+                <h2>Current Installation</h2>
+            </div>
+            <div class="card-body">
+                <div class="input-group">
+                    <label>Existing Floor Product</label>
+                    <select id="base-product"></select>
+                </div>
+                <div class="input-group">
+                    <label>Variant</label>
+                    <select id="base-variant" disabled></select>
+                </div>
+                <div class="input-group">
+                    <label>Installed Pedestal</label>
+                    <select id="base-pedestal" disabled></select>
+                </div>
+            </div>
+        </section>
+
+        <section class="card" id="section-strategy">
+            <div class="card-header">
+                <div class="step-number">02</div>
+                <h2>Renovation Strategy</h2>
+            </div>
+            <div class="card-body strategy-buttons" id="strategy-container">
+                <p class="placeholder-text">Select a product and variant in Step 01 to view available strategies.</p>
+            </div>
+        </section>
+
+        <section class="card" id="section-new">
+            <div class="card-header">
+                <div class="step-number">03</div>
+                <h2>New System Selection</h2>
+            </div>
+            <div class="card-body">
+                <div class="input-group">
+                    <label>New Floor Product</label>
+                    <select id="new-product"></select>
+                </div>
+                <div class="input-group">
+                    <label>New Variant</label>
+                    <select id="new-variant" disabled></select>
+                </div>
+                <div class="input-group">
+                    <label>New Pedestal</label>
+                    <select id="new-pedestal" disabled></select>
+                </div>
+                <div class="info-box" id="reuse-info" style="display: none;">
+                    <span>ℹ️</span>
+                    <span id="reuse-message">Auto-mapped to refurbished product.</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card results-card fade-in-up" id="renovation-results" style="display: none;">
+            <div class="card-header">
+                <h2>Impact Analysis</h2>
+            </div>
+            <div class="results-grid">
+                <div class="kpi-box">
+                    <span class="label">Baseline GWP</span>
+                    <span class="value" id="res-baseline">0.00</span>
+                    <span class="unit">kg CO₂e / m²</span>
+                </div>
+                <div class="kpi-box highlight">
+                    <span class="label">New System GWP</span>
+                    <span class="value" id="res-new">0.00</span>
+                    <span class="unit">kg CO₂e / m²</span>
+                </div>
+            </div>
+            <div class="results-split">
+                <div class="chart-wrapper"><canvas id="impactChart"></canvas></div>
+                <div class="ring-wrapper">
+                    <svg class="progress-ring" width="180" height="180">
+                        <circle class="progress-ring__bg" stroke="rgba(255,255,255,0.06)" stroke-width="12" fill="transparent" r="80" cx="90" cy="90"/>
+                        <circle class="progress-ring__circle" id="ring-circle-renovation" stroke="var(--success)" stroke-width="12" fill="transparent" r="80" cx="90" cy="90"/>
+                    </svg>
+                    <div class="ring-text">
+                        <span class="ring-value" id="ring-val-renovation">0%</span>
+                        <span class="ring-label" id="ring-lbl-renovation">Savings</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ══════════════════════════════════════════
+         VIEW 2: BUY NEW PRODUCT
+    ══════════════════════════════════════════ -->
+    <main class="grid-layout" id="view-buy-new" style="display: none;">
+
+        <!-- Global options row -->
+        <div class="full-width">
+            <div class="options-row">
+                <label class="toggle-pill" id="pill-pedestals">
+                    <input type="checkbox" id="bnp-include-pedestals">
+                    <span class="pill-dot"></span>
+                    <span>Include Pedestals / Substructure</span>
+                </label>
+                <label class="toggle-pill" id="pill-area">
+                    <input type="checkbox" id="bnp-show-area">
+                    <span class="pill-dot"></span>
+                    <span>Calculate Project Total</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Project Area input (hidden by default) -->
+        <div class="full-width" id="bnp-area-container" style="display: none;">
+            <div class="card area-card" style="padding: 20px;">
+                <div class="input-group" style="margin-bottom:0;">
+                    <label for="bnp-project-area">Project Area (m²)</label>
+                    <input type="number" id="bnp-project-area" placeholder="e.g. 1000">
+                </div>
+            </div>
+        </div>
+
+        <!-- OPTION 1 -->
+        <section class="card" id="bnp-section-baseline">
+            <div class="card-header">
+                <div class="step-number">01</div>
+                <h2>Option 1</h2>
+                <a id="bnp-base-link" href="#" target="_blank" class="product-link" style="display:none;">🔗 View Product</a>
+            </div>
+            <div class="card-body">
+
+                <div class="input-group">
+                    <label>Product</label>
+                    <select id="bnp-base-product"></select>
+                </div>
+                <div class="input-group">
+                    <label>Variant</label>
+                    <select id="bnp-base-variant" disabled></select>
+                </div>
+                <div class="input-group">
+                    <label>Lifecycle Scenario</label>
+                    <select id="bnp-base-scenario" disabled></select>
+                </div>
+                <div class="input-group bnp-pedestal-group" style="display: none;">
+                    <label>Installed Pedestal</label>
+                    <select id="bnp-base-pedestal" disabled></select>
+                </div>
+            </div>
+        </section>
+
+        <!-- OPTION 2 -->
+        <section class="card" id="bnp-section-new">
+            <div class="card-header">
+                <div class="step-number">02</div>
+                <h2>Option 2</h2>
+                <a id="bnp-new-link" href="#" target="_blank" class="product-link" style="display:none;">🔗 View Product</a>
+            </div>
+            <div class="card-body">
+
+                <div class="input-group">
+                    <label>Product</label>
+                    <select id="bnp-new-product"></select>
+                </div>
+                <div class="input-group">
+                    <label>Variant</label>
+                    <select id="bnp-new-variant" disabled></select>
+                </div>
+                <div class="input-group">
+                    <label>Lifecycle Scenario</label>
+                    <select id="bnp-new-scenario" disabled></select>
+                </div>
+                <div class="input-group bnp-pedestal-group" style="display: none;">
+                    <label>Pedestal</label>
+                    <select id="bnp-new-pedestal" disabled></select>
+                </div>
+            </div>
+        </section>
+
+        <!-- OPTION 3: COMPETITOR (hidden by default) -->
+        <section class="card competitor-card" id="bnp-section-competitor" style="display: none;">
+            <div class="card-header">
+                <div class="step-number" style="background: linear-gradient(135deg,#f05454,#c0392b);">03</div>
+                <div class="competitor-section-header">
+                    <h2>Competitor</h2>
+                    <button class="remove-competitor-btn" id="bnp-remove-competitor-btn">✕ Remove</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="input-group">
+                    <label>Competitor Product</label>
+                    <select id="bnp-comp-product"></select>
+                </div>
+                <div class="input-group">
+                    <label>Variant</label>
+                    <select id="bnp-comp-variant" disabled></select>
+                </div>
+                <div class="input-group">
+                    <label>Lifecycle Scenario</label>
+                    <select id="bnp-comp-scenario" disabled></select>
+                </div>
+            </div>
+        </section>
+
+        <!-- Add Competitor Button -->
+        <div class="full-width add-competitor-btn-wrapper" id="bnp-add-competitor-wrapper" style="display: none;">
+            <button id="bnp-add-competitor-btn" class="add-comp-btn">
+                <span>＋</span> Compare with Competitor
+            </button>
+        </div>
+
+        <!-- Warning Box -->
+        <div class="full-width" id="bnp-warning-box" style="display: none;">
+            <div class="warning-box"></div>
+        </div>
+
+        <!-- RESULTS -->
+        <section class="card results-card fade-in-up" id="bnp-results" style="display: none;">
+            <div class="card-header">
+                <h2>Comparison Results</h2>
+                <button class="pdf-export-btn" onclick="exportToPDF()" id="pdf-btn">
+                    ⬇ Export PDF
+                </button>
+            </div>
+
+            <!-- 3D Product Showcase is now BELOW market benchmark, not here -->
+
+            <div class="results-grid" id="bnp-results-grid">
+                <div class="kpi-box">
+                    <span class="label">Option 1 GWP</span>
+                    <span class="value" id="bnp-res-baseline">0.00</span>
+                    <span class="unit">kg CO₂e / m²</span>
+                </div>
+                <div class="kpi-box highlight">
+                    <span class="label">Option 2 GWP</span>
+                    <span class="value" id="bnp-res-new">0.00</span>
+                    <span class="unit">kg CO₂e / m²</span>
+                </div>
+            </div>
+
+            <div id="bnp-total-row" class="total-impact-row" style="display: none;">
+                <span style="display:block; color:var(--accent); font-size:0.75rem; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:14px; font-family:'DM Mono',monospace;">Total Project Carbon Footprint</span>
+                <div class="total-impact-values">
+                    <div>
+                        <span class="total-val-number" id="bnp-total-baseline">0</span>
+                        <span class="unit"> kg CO₂e <span style="opacity:0.6;">(Option 1)</span></span>
+                    </div>
+                    <div style="font-size:1.2rem; color:var(--text-dim); padding:0 8px;">vs</div>
+                    <div>
+                        <span class="total-val-number" id="bnp-total-new">0</span>
+                        <span class="unit"> kg CO₂e <span style="opacity:0.6;">(Option 2)</span></span>
+                    </div>
+                </div>
+                <!-- Highlighted savings banner -->
+                <div id="bnp-savings-banner" style="
+                    margin-top: 16px;
+                    padding: 14px 24px;
+                    background: linear-gradient(135deg, rgba(0,217,139,0.15), rgba(0,184,217,0.1));
+                    border: 1px solid rgba(0,217,139,0.4);
+                    border-radius: 12px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    gap: 12px;
+                ">
+                    <span style="font-size:1.5rem;">🌿</span>
+                    <div>
+                        <span id="bnp-total-label" style="color:#94a3b8; font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:2px;">Total Savings</span>
+                        <span id="bnp-total-savings" style="font-weight:800; color:var(--success); font-family:'DM Mono',monospace; font-size:2rem; line-height:1;">0</span>
+                        <span style="color:#94a3b8; font-size:0.85rem; font-family:'DM Mono',monospace;"> kg CO₂e</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-split">
+                <div class="chart-wrapper" id="bnp-chart-container">
+                    <canvas id="bnp-impactChart"></canvas>
+                </div>
+                <div class="ring-wrapper">
+                    <svg class="progress-ring" width="180" height="180">
+                        <circle class="progress-ring__bg" stroke="rgba(255,255,255,0.06)" stroke-width="12" fill="transparent" r="80" cx="90" cy="90"/>
+                        <circle class="progress-ring__circle" id="ring-circle-bnp" stroke="var(--success)" stroke-width="12" fill="transparent" r="80" cx="90" cy="90"/>
+                    </svg>
+                    <div class="ring-text">
+                        <span class="ring-value" id="ring-val-bnp">0%</span>
+                        <span class="ring-label" id="ring-lbl-bnp">Difference</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3-WAY BENCHMARK CHART -->
+        <section class="card results-card" id="bnp-competitor-results" style="display: none; margin-top: 0;">
+            <div class="card-header">
+                <h2>Market Benchmark — A1-C4 Comparison</h2>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="bnp-competitorChart"></canvas>
+            </div>
+        </section>
+
+        <!-- 3D PRODUCT SHOWCASE — shown below benchmark, only our Lindner products -->
+        <section class="card results-card" id="bnp-showcase-section" style="display: none; margin-top: 0;">
+            <div class="card-header" style="margin-bottom:8px;">
+                <h2>Your Products — 3D View</h2>
+                <span style="margin-left:auto; font-size:0.75rem; color:var(--text-muted); font-family:'DM Mono',monospace;">HOVER TO INTERACT</span>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:20px;">
+                Visualising your selected Lindner floor panels side by side.
+            </p>
+            <div class="product-showcase" id="bnp-product-showcase"></div>
+        </section>
+
+    </main>
+
+    <!-- ══════════════════════════════════════════
+         VIEW 3: NEW PURCHASE COMPARISON
+    ══════════════════════════════════════════ -->
+    <main class="grid-layout" id="view-new-purchase" style="display: none;">
+
+        <section class="card full-width">
+            <div class="card-header">
+                <h2>Select Product Family</h2>
+            </div>
+            <div class="card-body">
+                <div class="input-group">
+                    <label>Product Family</label>
+                    <select id="np-family"></select>
+                </div>
+                <div style="margin-top: 14px;">
+                    <label class="toggle-pill" id="np-pill-pedestals">
+                        <input type="checkbox" id="np-include-pedestals">
+                        <span class="pill-dot"></span>
+                        <span>Include Pedestals / Substructure</span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <div class="comparison-container" id="np-comparison-container" style="display: none;">
+            <div class="card comparison-card">
+                <div class="card-header">
+                    <h3>New Product</h3>
+                    <div class="badge-new">Standard</div>
+                </div>
+                <div class="card-body" id="np-card-new"></div>
+            </div>
+            <div class="card comparison-card">
+                <div class="card-header">
+                    <h3>Refurbished Alternative</h3>
+                    <div class="badge-refurb">Circular</div>
+                </div>
+                <div class="card-body" id="np-card-refurb"></div>
+            </div>
+        </div>
+
+        <div class="result-banner" id="np-result-banner" style="display: none;">
+            <span id="np-result-text">Select options to see comparison.</span>
+        </div>
+
+    </main>
+
+</div>
+
+<!-- ── Fullscreen 3D Modal ── -->
+<div id="modal-3d-overlay">
+    <button id="modal-close-btn" onclick="closeModal3D()">✕</button>
+
+    <!-- Mode switcher tabs -->
+    <div id="modal-mode-bar">
+        <button class="modal-mode-btn active" data-mode="panel" onclick="switchModalMode('panel')">
+            <span class="mode-icon">◈</span> Panel View
+        </button>
+        <button class="modal-mode-btn" data-mode="office" onclick="switchModalMode('office')">
+            <span class="mode-icon">▦</span> Room View
+        </button>
+    </div>
+
+    <div id="modal-3d-canvas-wrap"></div>
+
+    <div id="modal-3d-info">
+        <div id="modal-3d-name">Product</div>
+        <div style="display:flex;align-items:baseline;gap:8px;justify-content:center;">
+            <div id="modal-3d-gwp">0.00</div>
+            <div id="modal-3d-unit">kg CO₂e / m²</div>
+        </div>
+        <a id="modal-3d-link" href="#" target="_blank">🔗 View Full Product Details</a>
+    </div>
+    <div id="modal-hint">DRAG TO ROTATE · SCROLL TO ZOOM</div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
