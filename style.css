@@ -620,29 +620,11 @@ select:disabled {
     100% { background-color: var(--bg-surface); border-color: var(--border); }
 }
 
-.flash-update { animation: flash-highlight 1s ease-out forwards; }
-
 /* ── Competitor card special styling ── */
 .card.competitor-card {
     border-color: rgba(240,84,84,0.25);
     background: linear-gradient(135deg, var(--card-bg) 0%, rgba(240,84,84,0.03) 100%);
 }
-
-/* ── Product link ── */
-a.product-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.78rem;
-    color: var(--accent);
-    text-decoration: none;
-    padding: 2px 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(59,127,245,0.25);
-    transition: all 0.2s;
-    margin-left: 8px;
-}
-a.product-link:hover { background: var(--accent-glow); }
 
 /* ── Divider ── */
 .section-divider {

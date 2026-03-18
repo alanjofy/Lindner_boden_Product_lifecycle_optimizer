@@ -29,6 +29,14 @@ let bnpCompetitorChartInstance = null;
 
 function getProductImage(productName) {
     if (!productName) return null;
+    const n = productName.toUpperCase().trim();
+
+    // Map local images folder based on product names
+    if (n === 'NORTEC' || n === 'LOOP') return 'image/nortec.png';
+    if (n.includes('FLOOR AND MORE') || n.includes('FLOOR & MORE') || n === 'ADDLIFE') return 'image/floorandmore.png';
+    if (n.includes('LIGNA') || n.includes('RELIFE')) return 'image/ligna.png';
+    if (n === 'NORIT') return 'image/norit.jpg';
+
     const normalize = s => s ? s.trim().toLowerCase() : "";
     const row = AppState.productLinks.find(r =>
         normalize(r["Product"] || r["product"]) === normalize(productName)
@@ -38,9 +46,16 @@ function getProductImage(productName) {
     return imgPath.trim() || null;
 }
 
-function updateProductImage(productName, imgId, placeholderId) {
+function isRefurbishedProduct(productName) {
+    if (!productName) return false;
+    const n = productName.toUpperCase().trim();
+    return n === 'LOOP' || n === 'ADDLIFE' || n.includes('RELIFE');
+}
+
+function updateProductImage(productName, imgId, placeholderId, tagId) {
     const img = document.getElementById(imgId);
     const placeholder = document.getElementById(placeholderId);
+    const tag = tagId ? document.getElementById(tagId) : null;
     // Show the wrapper div (parent of both)
     const wrapper = img ? img.closest('[id$="-img-wrapper"]') : null;
 
@@ -50,11 +65,16 @@ function updateProductImage(productName, imgId, placeholderId) {
         // Hide entire wrapper when no product selected
         if (wrapper) wrapper.style.display = 'none';
         img.style.display = 'none';
+        if (tag) tag.style.display = 'none';
         return;
     }
 
     // Show wrapper now that a product is selected
     if (wrapper) wrapper.style.display = 'block';
+
+    if (tag) {
+        tag.style.display = isRefurbishedProduct(productName) ? 'block' : 'none';
+    }
 
     const src = getProductImage(productName);
     if (src) {
@@ -268,7 +288,7 @@ function attachBuyNewListeners() {
         resetCompetitor();
 
         filterOption2Products();
-        updateProductLink(e.target.value, "bnp-base-link");
+        updateProductImage(e.target.value, "bnp-base-img", "bnp-base-img-placeholder", "bnp-base-refurb-tag");
         updateCompetitorButtonVisibility();
         calculateBuyNew();
     });
@@ -305,7 +325,7 @@ function attachBuyNewListeners() {
         document.getElementById("bnp-new-scenario").disabled = true;
 
         if (document.getElementById("bnp-section-competitor").style.display !== "none") initCompetitorProducts();
-        updateProductLink(e.target.value, "bnp-new-link");
+        updateProductImage(e.target.value, "bnp-new-img", "bnp-new-img-placeholder", "bnp-new-refurb-tag");
         updateCompetitorButtonVisibility();
         calculateBuyNew();
     });
@@ -368,27 +388,6 @@ function resetCompetitor() {
     document.getElementById("bnp-comp-variant").disabled = true;
     document.getElementById("bnp-comp-scenario").innerHTML = "";
     document.getElementById("bnp-comp-scenario").disabled = true;
-}
-
-// =======================================================
-// PRODUCT LINK HELPER
-// =======================================================
-
-function updateProductLink(productName, linkId) {
-    const linkEl = document.getElementById(linkId);
-    if (!linkEl) return;
-    linkEl.style.display = "none";
-    if (!productName) return;
-
-    const normalize = s => s ? s.trim().toLowerCase() : "";
-    const target = normalize(productName);
-    const row = AppState.productLinks.find(r =>
-        Object.values(r).some(v => normalize(v) === target)
-    );
-    if (row) {
-        const url = Object.values(row).find(v => v && (v.includes("http://") || v.includes("https://")));
-        if (url) { linkEl.href = url.trim(); linkEl.style.display = "inline-flex"; }
-    }
 }
 
 // =======================================================
@@ -656,6 +655,7 @@ function filterOption2Products() {
             document.getElementById(id).innerHTML = "";
             document.getElementById(id).disabled = true;
         });
+        updateProductImage("", "bnp-new-img", "bnp-new-img-placeholder", "bnp-new-refurb-tag");
     }
 }
 
